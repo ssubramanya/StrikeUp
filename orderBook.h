@@ -10,10 +10,10 @@ class OrderBook {
     };
 
     private:
-        std::map<uint64, OrderPointers, std::greater<Price>> c_bidsMap; // key - price
-        std::map<uint64, OrderPointers, std::less<Price>> c_asksMap; // key - price
+        std::map<double, OrderPointers, std::greater<Price>> c_bidsMap; // key - price
+        std::map<double, OrderPointers, std::less<Price>> c_asksMap; // key - price
         std::unordered_map<uint64, OrderEntry> c_orderIdToOrderMap;
-        std::unordered_map<uint64, LevelInfo> c_priceToLevelMap;
+        std::unordered_map<double, LevelInfo> c_priceToLevelMap;
 
         }
     public:

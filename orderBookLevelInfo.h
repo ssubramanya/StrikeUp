@@ -3,7 +3,7 @@
 #include "levelInfo.h"
 
 
-class orderBookLevelInfo {
+class OrderBookLevelInfo {
     public:
         orderBookLevelInfo(const levelInfos& bids, const levelInfos& asks) : c_bids(bids), c_asks(asks) {}
         const levelInfos& bids() const { return c_bids; }

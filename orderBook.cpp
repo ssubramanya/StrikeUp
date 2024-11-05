@@ -1,4 +1,5 @@
 #include "orderBook.h"
+#include "Trade.h"
 
 OrderBook::OrderBook() {
     c_orderId = 0;
@@ -105,13 +106,15 @@ void CancelOrder(uint64_t orderId) {
     auto& [order, orderIterator] = c_orderIdToOrderMap[orderId];
     
     if(order->side() == Buy) {
-        c_bidsMap[order->price()].erase(orderIterator);
-        if(c_bidsMap[order->price()].empty()) {
+        auto& bid = c_bidsMap[order->price()];
+        bid.erase(orderIterator);
+        if(bid.empty()) {
             c_bidsMap.erase(order->price());
         }
     } else {
-        c_asksMap[order->price()].erase(orderIterator);
-        if(c_asksMap[order->price()].empty()) {
+        auto& ask = c_asksMap[order->price()]
+        ask.erase(orderIterator);
+        if(ask.empty()) {
             c_asksMap.erase(order->price());
         }
     }
