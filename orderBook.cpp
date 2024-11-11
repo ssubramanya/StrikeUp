@@ -5,96 +5,199 @@ OrderBook::OrderBook() {
     c_orderId = 0;
 }
 
-bool OrderBook::CanMatch(e_side side, uint64_t price) {
-    if (side == Buy) {
+bool OrderBook::CanMatch(e_side side, double price)
+{
+    if (side == e_side::Buy)
+    {
         return !c_asksMap.empty() && c_asksMap.begin()->first <= price;
-    } else {
+    } else
+    {
         return !c_bidsMap.empty() && c_bidsMap.begin()->first >= price;
     }   
 }
 
-Trades MatchOrders() {
+bool OrderBook::CanMatchFully(e_side side, double price, uint64_t quantity)
+{
+    if (side == e_side::Buy)
+    {
+        auto itr = c_asksMap.begin();
+        while(itr != c_asksMap.end() && itr.first <= price)
+        {
+            if(itr.second >= quantity)
+            {
+                return true;
+            }
+            quantity -= itr.second;
+            itr++;
+        }
+    }
+    else
+    {
+        auto itr = c_bidsMap.begin();
+        while(itr != c_bidsMap.end() && itr.first >= price)
+        {
+            if(itr.second >= quantity)
+            {
+                return true;
+            }
+            quantity -= itr.second;
+            itr++;
+        }
+    }
+    return false;
+}
+
+Trades MatchOrders(Order* order) {
     Trades trades;
 
     while(true) {
-        if(c_bidsMap.empty() || c_asksMap.empty()) {
-            break;
-        }
-        auto& [bidPrice, bidOrders] = c_bidsMap.begin();
-        auto& [askPrice, askOrders] = c_asksMap.begin();
-
-        if(bidPrice < askPrice) {
+        
+        if(c_bidsMap.empty() || c_asksMap.empty())
+        {
             break;
         }
 
-        while(!bidOrders.empty() && !askOrders.empty()) {
-            auto& bid = bidOrders.front();
-            auto& ask = askOrders.front();
+        if(order->side() == e_side::Buy)
+        {
+            auto& [askPrice, askOrdersList] = c_asksMap.begin();
 
-            uint64_t tradeQuantity = std::min(bid->remainingQuantity(), ask->remainingQuantity());
-
-            bid->Fill(tradeQuantity);
-            ask->Fill(tradeQuantity);
-
-            if(bid->remainingQuantity() == 0) {
-                c_orderIdToOrderMap.erase(bid->orderId());
-                bidOrders.pop_front();
+            if(order->price() < askPrice)
+            {
+                break;
             }
 
-            if(ask->remainingQuantity() == 0) {
-                c_orderIdToOrderMap.erase(ask->orderId());
-                askOrders.pop_front();
-            }
+            while(!askOrdersList.empty() && order->remainingQuantity()>0)
+            {
+                auto& askOrder = askOrders.front();
+                uint64_t tradeQuantity = std::min(order->remainingQuantity(), askOrder->remainingQuantity());
+                order->Fill(tradeQuantity);
+                askOrder->Fill(tradeQuantity);
+                c_asksPriceToQtyMap[askPrice] -= tradeQuantity;
 
-            if(bid.empty()) {
-                c_bidsMap.erase(bidPrice);
+                if(askOrder->remainingQuantity() == 0)
+                {
+                    c_orderIdToOrderMap.erase(askOrder->orderId());
+                    askOrdersList.pop_front();
+                }
+                //should we maintain this order matched to this? -- ask vatsa
+                trades.push_back(Trade(askPrice, tradeQuantity, askOrder->orderId()));
+                trades.push_back(Trade(askPrice, tradeQuantity, order->orderId()));
             }
-            if(ask.empty()) {
+            if(askOrdersList.empty())
+            {
                 c_asksMap.erase(askPrice);
             }
         }
-    }
+        else
+        {
+            auto& [bidPrice, bidOrdersList] = c_bidsMap.begin();
 
-    if(!c_bidsMap.empty()) {
-        auto& order = c_bidsMap.begin()->second.front();
-        if(order->GetOrderType() == e_orderType::FillAndKill) {
-            cancelOrder(order->orderId());
+            if(order->price() > bidPrice)
+            {
+                break;
+            }
+
+            while(!bidOrdersList.empty() && order->remainingQuantity()>0)
+            {
+                auto& bidOrder = bidOrders.front();
+                uint64_t tradeQuantity = std::min(order->remainingQuantity(), bidOrder->remainingQuantity());
+                order->Fill(tradeQuantity);
+                bidOrder->Fill(tradeQuantity);
+                c_bidsPriceToQtyMap[bidPrice] -= tradeQuantity;
+
+                if(bidOrder->remainingQuantity() == 0)
+                {
+                    c_orderIdToOrderMap.erase(bidOrder->orderId());
+                    bidOrdersList.pop_front();
+                }
+
+                //should we maintain this order matched to this? -- ask vatsa
+                trades.push_back(Trade(askPrice, tradeQuantity, askOrder->orderId()));
+                trades.push_back(Trade(askPrice, tradeQuantity, order->orderId()));
+
+            }
+            if(bidOrdersList.empty())
+            {
+                c_bidsMap.erase(bidPrice);
+            }
+        }
+
+        if(order->remainingQuantity() == 0)
+        {
+            break;
         }
     }
-    if(!c_asksMap.empty()) {
-        auto& order = c_asksMap.begin()->second.front();
-        if(order->GetOrderType() == e_orderType::FillAndKill) {
-            cancelOrder(order->orderId());
-        }
-    }
-    
     return trades;
 }
 
-Trades AddOrder(Order* order) {
+void AddOrderToOrderBook(Order* order, std::list<Order*>::iterator& orderIterator)
+{
+    if(order->side() == Buy)
+    {
+        auto& orders = c_bidsMap[order->price()];
+        orders.push_back(order);
+        orderIterator = std::prev(orders.end());
+        c_bidsPriceToQtyMap[order->price()] += order->remainingQuantity();
+    }
+    else
+    {
+        auto& orders = c_asksMap[order->price()];
+        orders.push_back(order);
+        orderIterator = std::prev(orders.end());
+        c_asksPriceToQtyMap[order->price()] += order->remainingQuantity();
+    }
+}
+
+Trades AddOrder(Order* order)
+{
+
     if(c_orderIdToOrderMap.find(order->orderId()) != c_orderIdToOrderMap.end()) {
         std::cout << "Error: Order with orderId " << order->orderId() << " already exists" << std::endl;
         return Trades();
     }
 
-    if(order->OrderType() == e_orderType::FillAndKill && !CanMatch(order->side(), order->price())) {
+    if(order->orderType() == e_orderType::Market)
+    {
+        if(order->side() == e_Side::Buy && !c_asksMap.empty())
+        {
+            order->price = c_asksMap.rbegin()->first;
+        }
+        else if(order->side() == e_Side::Asks && !c_bidsMap.empty())
+        {
+            order->price = c_bidsMap.rbegin()->first;
+        }
+        else
+        {
+            std::cout << "Info: Market order cannot be executed" << std::endl;
+            return Trades();
+        }
+    }
+    if(order->OrderType() == e_orderType::FillAndKill && !CanMatch(order->side(), order->price()))
+    {
         std::cout << "Info: FillAndKill cannot be executed" << std::endl;
         return Trades();
     }
 
-    OrderPointers::iterator orderIterator;
-    if(order->e_side() == Buy) {
-        auto &orders = c_bidsMap[order->price()];
-        orders.push_back(order);
-        orderIterator = std::prev(orders.end());
-    } else {
-        auto &orders = c_asksMap[order->price()];
-        orders.push_back(order);
-        orderIterator = std::prev(orders.end());        
+    if(order->orderType() == e_orderType::FillOrKill && !CanMatchFully(order->sice(),order->price()))
+    {
+        std::cout << "Info: FillOrKill cannot be executed since quantity doesn match" << std::endl;
+        return Trades();
     }
 
-    c_orderIdToOrderMap.emplace(order->orderId(), OrderEntry{order, orderIterator}); 
-    return MatchOrders();
+    Trades& trades = MatchOrders(order);
+
+        
+    OrderPointers::iterator orderIterator;
+    if(order->remainingQuantity > 0 && order->orderType() != e_orderType::FillAndKill)
+    {
+        AddOrderToOrderBook(order, orderIterator);
+        c_orderIdToOrderMap.emplace(order->orderId(), OrderEntry{order, orderIterator}); 
+    }
+    else
+    {
+        delete order;
+    }
+    return trades;
 }
 
 void CancelOrder(uint64_t orderId) {
@@ -105,16 +208,21 @@ void CancelOrder(uint64_t orderId) {
 
     auto& [order, orderIterator] = c_orderIdToOrderMap[orderId];
     
-    if(order->side() == Buy) {
+    if(order->side() == Buy)
+    {
         auto& bid = c_bidsMap[order->price()];
         bid.erase(orderIterator);
-        if(bid.empty()) {
+        if(bid.empty())
+        {
             c_bidsMap.erase(order->price());
         }
-    } else {
+    }
+    else 
+    {
         auto& ask = c_asksMap[order->price()]
         ask.erase(orderIterator);
-        if(ask.empty()) {
+        if(ask.empty())
+        {
             c_asksMap.erase(order->price());
         }
     }

@@ -28,3 +28,4 @@ class Order {
         uint64_t c_initialQuantity;
         uint64_t c_remainingQuantity;
 };
+

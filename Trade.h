@@ -3,17 +3,11 @@
 class Trade
 {
     public:
-        Trade(const TradeInfo& bidTrade, const TradeInfo& askTrade)
-        : bidTrade_{ bidTrade }
-        , askTrade_{ askTrade }
-    { }
-
-    const TradeInfo& GetBidTrade() const { return bidTrade_; }
-    const TradeInfo& GetAskTrade() const { return askTrade_; }
-
+    Trade(double price, uint64_t quantity, uint64_t OrderId) : price_(price), quantity_(quantity), OrderId_(OrderId) {}
 private:
-    TradeInfo bidTrade_;
-    TradeInfo askTrade_;
+    double price_;
+    uint64_t quantity_;
+    uint64_t OrderId_;
 };
 
 using Trades = std::vector<Trade>;
