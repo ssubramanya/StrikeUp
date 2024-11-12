@@ -80,8 +80,8 @@ Trades MatchOrders(Order* order) {
                     askOrdersList.pop_front();
                 }
                 //should we maintain this order matched to this? -- ask vatsa
-                trades.push_back(Trade(askPrice, tradeQuantity, askOrder->orderId()));
-                trades.push_back(Trade(askPrice, tradeQuantity, order->orderId()));
+                trades.push_back(Trade{(askPrice, tradeQuantity, askOrder->orderId())},{(askPrice, tradeQuantity, order->orderId())});
+
             }
             if(askOrdersList.empty())
             {
@@ -112,8 +112,7 @@ Trades MatchOrders(Order* order) {
                 }
 
                 //should we maintain this order matched to this? -- ask vatsa
-                trades.push_back(Trade(askPrice, tradeQuantity, askOrder->orderId()));
-                trades.push_back(Trade(askPrice, tradeQuantity, order->orderId()));
+                trades.push_back(Trade{(bidPrice, tradeQuantity, bidOrder->orderId())},{(bidPrice, tradeQuantity, order->orderId())});
 
             }
             if(bidOrdersList.empty())
