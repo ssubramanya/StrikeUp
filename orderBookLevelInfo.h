@@ -5,7 +5,7 @@
 
 class OrderBookLevelInfo {
     public:
-        orderBookLevelInfo(const levelInfos& bids, const levelInfos& asks) : c_bids(bids), c_asks(asks) {}
+        OrderBookLevelInfo(const levelInfos bids, const levelInfos asks):c_bids(bids), c_asks(asks) {}
         const levelInfos& bids() const { return c_bids; }
         const levelInfos& asks() const { return c_asks; }
         

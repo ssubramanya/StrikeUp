@@ -1,6 +1,8 @@
+#pragma once
+
 struct TradeInfo
 {
-    OrderId orderId_;
-    Price price_;
-    Quantity quantity_;
+    double price_;
+    uint64_t quantity_;
+    uint64_t orderId_;
 };

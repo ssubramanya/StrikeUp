@@ -1,6 +1,6 @@
 #pragma once
 
-enum class e_side {
-    Buy,
+enum e_side {
+    Buy=0,
     Sell
 };

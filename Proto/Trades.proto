@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+message TradeInfo {
+    double price = 1;
+    uint64 quantity = 2;
+    uint64 bidOrderId = 3;
+    uint64 askOrderId = 4;
+}
+
+message Trades {
+    repeated TradeInfo trades = 1;
+}
+

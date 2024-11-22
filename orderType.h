@@ -1,8 +1,15 @@
 #pragma once   
 
-enum class e_orderType {
-    FillOrKill,
+enum e_orderType {
+    Market=0,
     GoodTillCancelled,
-    Market
+    FillOrKill,
     FillAndKill
 };
+/*
+
+#define Market               0
+#define GoodTillCancelled    1
+#define FillOrKil            2
+#define FillAndKill          3
+*/

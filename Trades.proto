@@ -1,0 +1,20 @@
+// order.proto
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto"; // Import Google Protobuf Timestamp type
+
+message TradeInfo {
+    double price = 1;
+    uint64 quantity = 2;
+    uint64 orderId = 3;
+}
+
+message Trade {
+    TradeInfo bidTrade = 1;
+    TradeInfo askTrade = 2;
+}
+
+message Trades {
+    repeated Trade trades = 1;
+}
+

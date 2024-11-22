@@ -1,3 +1,6 @@
+
+#pragma once
+
 #include "TradeInfo.h"
 //TODO - can we optimise by keeping price & quantity to here?
 class Trade
@@ -11,7 +14,6 @@ class Trade
     const TradeInfo& GetBidTrade() const { return bidTrade_; }
     const TradeInfo& GetAskTrade() const { return askTrade_; }
 
-private:
     TradeInfo bidTrade_;
     TradeInfo askTrade_;
 };
