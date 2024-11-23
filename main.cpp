@@ -3,6 +3,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
+#include <google/protobuf/util/json_util.h>
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -34,12 +35,8 @@ void deserializeOrderFromJson(const std::string& json_data, Order* order)
     cout<<"2";
     // Map JSON fields to Protobuf fields
     order->c_orderId = (doc["orderId"].GetUint64());
-    cout<<order->c_orderId<<" ";
-/*    order->setOrderType(doc["orderType"].GetInt());
-    order->setSide((doc["side"].GetInt()));*/
     order->setOrderType(static_cast<e_orderType>(doc["orderType"].GetInt()));
-    cout<<order->c_orderType<<" ";
-order->setSide(static_cast<e_side>(doc["side"].GetInt()));
+    order->setSide(static_cast<e_side>(doc["side"].GetInt()));
     order->c_price = (doc["price"].GetDouble());
     order->c_initialQuantity = (doc["Quantity"].GetUint64());
 //    order->c_timestamp = (doc["remainingQuantity"].GetUint64());
@@ -144,7 +141,20 @@ void start_rest_server(OrderBook& ob) {
             std::string response_data;
             processedTrades.SerializeToString(&response_data);
 
-            boost::asio::write(socket, boost::asio::buffer(response_data));
+            std::string json_response;
+            google::protobuf::util::MessageToJsonString(processedTrades, &json_response);
+
+
+            std::string http_response = 
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: " + std::to_string(json_response.size()) + "\r\n"
+                "\r\n" +
+                json_response;
+
+            boost::asio::write(socket, boost::asio::buffer(http_response));
+
+            //boost::asio::write(socket, boost::asio::buffer(response_data));
         } catch (const std::exception& e) {
             // Error handling
             cout<<"5"<<endl;

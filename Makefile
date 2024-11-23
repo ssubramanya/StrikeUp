@@ -5,10 +5,12 @@ PROTO_CC = $(PROTO_GEN_DIR)/Trades.pb.cc
 PROTO_H = $(PROTO_GEN_DIR)/Trades.pb.h
 
 LIB_PATH = -L/home/subramanya/Downloads/protobuf-3.11.2/src/.libs
+LIBRARIES = -lserved -lboost_system -lpthread -lprotobuf
+DIR_PATH = -I/usr/include -I$(PROTO_GEN_DIR)
 
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++11 -I/usr/include -I$(PROTO_GEN_DIR) -lserved -lboost_system -lpthread # Include the Protobuf header directory
+CXXFLAGS = -std=c++11 -ggdb  -O0 -Wall# Include the Protobuf header directory
 
 # Protobuf compiler
 PROTOC = protoc
@@ -29,7 +31,7 @@ TARGET = strikeup
 
 # Build the executable
 main: $(OBJS)
-	$(CXX) $(OBJS) -g -o $(TARGET) $(LIB_PATH) $(CXXFLAGS) -lprotobuf
+	$(CXX) $(OBJS) -o $(TARGET) $(LIB_PATH) $(CXXFLAGS) $(DIR_PATH) $(LIBRARIES)
 
 # Rule to clean up
 clean:

@@ -63,11 +63,12 @@ Trades OrderBook::MatchOrders(Order* order) {
     while(true) {
         if(order->side() == e_side::Buy)
         {
-	    if(c_bidsMap.empty())
-		break;
-	    auto itr = c_asksMap.begin();
-	    double askPrice = itr->first;
-	    auto& askOrdersList = itr->second;
+            if(c_asksMap.empty())
+                break;
+
+            auto itr = c_asksMap.begin();
+            double askPrice = itr->first;
+            auto& askOrdersList = itr->second;
 
             if(order->price() < askPrice)
             {
@@ -100,11 +101,11 @@ Trades OrderBook::MatchOrders(Order* order) {
         }
         else
         {
-	    if(c_bidsMap.empty())
-		break;
-	    auto itr = c_bidsMap.begin();
-	    double bidPrice = itr->first;
-	    auto& bidOrdersList = itr->second;
+            if(c_bidsMap.empty())
+                break;
+            auto itr = c_bidsMap.begin();
+            double bidPrice = itr->first;
+            auto& bidOrdersList = itr->second;
 
             if(order->price() > bidPrice)
             {
