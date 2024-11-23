@@ -13,6 +13,48 @@
 #include <iomanip>
 using namespace std;
 
+std::string serializeLevelInfoToJson(
+    const std::map<double, uint64_t, std::greater<double>>& c_bidsPriceToQtyMap,
+    const std::map<double, uint64_t, std::less<double>>& c_asksPriceToQtyMap,
+    size_t limit) 
+{
+    rapidjson::Document doc;
+    doc.SetObject();
+    rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+
+    // Serialize bids with a limit
+    rapidjson::Value bids(rapidjson::kArrayType);
+    size_t count = 0;
+    for (auto itr = c_bidsPriceToQtyMap.begin(); itr != c_bidsPriceToQtyMap.end() && count < limit; ++itr) {
+        rapidjson::Value bid(rapidjson::kObjectType);
+        bid.AddMember("price", itr->first, allocator);
+        bid.AddMember("quantity", itr->second, allocator);
+        bids.PushBack(bid, allocator);
+        count++;
+    }
+    doc.AddMember("bids", bids, allocator);
+
+    // Serialize asks with a limit
+    rapidjson::Value asks(rapidjson::kArrayType);
+    count = 0;
+    for (auto itr = c_asksPriceToQtyMap.begin(); itr != c_asksPriceToQtyMap.end() && count < limit; ++itr) {
+        rapidjson::Value ask(rapidjson::kObjectType);
+        ask.AddMember("price", itr->first, allocator);
+        ask.AddMember("quantity", itr->second, allocator);
+        asks.PushBack(ask, allocator);
+        count++;
+    }
+    doc.AddMember("asks", asks, allocator);
+
+    // Convert JSON to string
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+
+    return buffer.GetString();
+}
+
+
 // Deserialize the incoming JSON request to Order
 void deserializeOrderFromJson(const std::string& json_data, Order* order) 
 {
@@ -26,20 +68,20 @@ void deserializeOrderFromJson(const std::string& json_data, Order* order)
     // Extract the JSON substring
     std::string jsonData = json_data.substr(json_start, json_end - json_start + 1);
     
-    std::cout << "Parsing JSON: " << jsonData << std::endl;    
+//    std::cout << "Parsing JSON: " << jsonData << std::endl;    
     rapidjson::Document doc;
     if (doc.Parse(jsonData.c_str()).HasParseError()) {
         throw std::runtime_error("Invalid JSON");
     }
 
-    cout<<"2";
+    //cout<<"2";
     // Map JSON fields to Protobuf fields
     order->c_orderId = (doc["orderId"].GetUint64());
     order->setOrderType(static_cast<e_orderType>(doc["orderType"].GetInt()));
     order->setSide(static_cast<e_side>(doc["side"].GetInt()));
     order->c_price = (doc["price"].GetDouble());
     order->c_initialQuantity = (doc["Quantity"].GetUint64());
-//    order->c_timestamp = (doc["remainingQuantity"].GetUint64());
+    order->c_remainingQuantity = order->c_initialQuantity;
 }
 
 /*
@@ -132,10 +174,13 @@ void start_rest_server(OrderBook& ob) {
 
         // Deserialize, process, and respond
         Order* incomingOrder = new Order();
-        cout<<"0"<<endl;
+        //cout<<"0"<<endl;
         try {
             deserializeOrderFromJson(request_data, incomingOrder);
             Trades processedTrades = ob.AddOrder(incomingOrder);
+    
+//            cout<<"CURRENT PRICE: "<< ob.currentRunningPrice<<endl;
+            std::cerr << "CURRENT PRICE: " << ob.currentRunningPrice << '\n';
 
             // Send response (serialized as Protobuf)
             std::string response_data;
@@ -157,7 +202,6 @@ void start_rest_server(OrderBook& ob) {
             //boost::asio::write(socket, boost::asio::buffer(response_data));
         } catch (const std::exception& e) {
             // Error handling
-            cout<<"5"<<endl;
             std::string error_message = "Error: " + std::string(e.what());
             cout<<error_message;
             boost::asio::write(socket, boost::asio::buffer(error_message));
@@ -166,12 +210,95 @@ void start_rest_server(OrderBook& ob) {
 
 }
 
-int main() {
+void start_rest_server_for_display(OrderBook& ob)
+{
+    boost::asio::io_service io_service;
+    boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 8081);
+    boost::asio::ip::tcp::acceptor acceptor(io_service, endpoint);
+    
+    while (true) {
+        boost::asio::ip::tcp::socket socket(io_service);
+        acceptor.accept(socket);
+
+        // Read the incoming request
+        std::string request_data;
+        boost::asio::read_until(socket, boost::asio::dynamic_buffer(request_data), "\r\n");
+
+        // Deserialize, process, and respond
+        try {
+
+            size_t json_start = request_data.find("{");
+            size_t json_end = request_data.rfind("}");
+
+            if (json_start == std::string::npos || json_end == std::string::npos) {
+                throw std::runtime_error("Invalid JSON: JSON data not found.");
+            }
+
+            // Extract the JSON substring
+            std::string jsonData = request_data.substr(json_start, json_end - json_start + 1);
+            
+            //std::cout << "Parsing JSON: " << jsonData << std::endl;    
+            rapidjson::Document doc;
+            if (doc.Parse(jsonData.c_str()).HasParseError()) {
+                throw std::runtime_error("Invalid JSON");
+            }
+
+            int limit=INT_MAX;
+            if (doc.HasMember("limit")) {
+            // Ensure "limit" is of type integer
+                if (doc["limit"].IsInt()) {
+                    limit = doc["limit"].GetInt();
+                }
+            }
+
+            string json_response = serializeLevelInfoToJson(ob.c_bidsPriceToQtyMap, ob.c_asksPriceToQtyMap,limit); 
+
+            std::string http_response = 
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: " + std::to_string(json_response.size()) + "\r\n"
+                "\r\n" +
+                json_response;
+
+            boost::asio::write(socket, boost::asio::buffer(http_response));
+
+        } catch (const std::exception& e) {
+            // Error handling
+            std::string error_message = "Error: " + std::string(e.what());
+            cout<<error_message;
+            boost::asio::write(socket, boost::asio::buffer(error_message));
+        }
+    }
+}
+
+
+int main(int argc, char* argv[]) {
     // Initialize your OrderBook and start the REST server
     OrderBook ob;
-    start_rest_server(ob);
+    ob.currentRunningPrice=0;
+    if (argc > 1) {
+        std::string arg1 = argv[1]; // Convert C-string to std::string
+        if(arg1 == "debug")
+        {
+            std::thread restThread1(start_rest_server_for_display, std::ref(ob));
+            std::thread restThread2(start_rest_server,std::ref(ob));
+            // Wait for threads to finish
+            restThread1.join();
+            restThread2.join();            
+        }
+        else
+        {
+            start_rest_server(ob);
+        }
+    }
+    else
+        start_rest_server(ob);
+
     return 0;
 }
+
+
+
 /*
 
 
